@@ -225,7 +225,7 @@ final class AccountViewModel: ObservableObject {
         var items: [HistoryItem] = []
         
         // Ngày hôm nay - nhiều giao dịch
-        for i in 0..<40 {
+        for _ in 0..<40 {
             let hour = Int.random(in: 7...22)
             let minute = Int.random(in: 0...59)
             let second = Int.random(in: 0...59)
@@ -245,7 +245,7 @@ final class AccountViewModel: ObservableObject {
         }
         
         // Ngày hôm qua
-        for i in 0..<8 {
+        for _ in 0..<8 {
             let daysAgo = 1
             let hour = Int.random(in: 8...20)
             let minute = Int.random(in: 0...59)
@@ -267,7 +267,7 @@ final class AccountViewModel: ObservableObject {
         }
         
         // Các ngày trước
-        for i in 0..<5 {
+        for _ in 0..<5 {
             let daysAgo = Int.random(in: 2...7)
             let hour = Int.random(in: 8...20)
             let minute = Int.random(in: 0...59)
