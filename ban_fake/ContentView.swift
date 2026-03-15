@@ -26,16 +26,16 @@ struct ContentView: View {
                     .padding(.bottom, 18)
             }
         }
-        .sheet(isPresented: $isHistorySheetPresented) {
-            historySheet
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+        .overlay(alignment: .bottom) {
+            if isHistorySheetPresented {
+                historyOverlay
+            }
         }
         .fullScreenCover(isPresented: $isHistoryListPresented) {
             historyListView
         }
         .fullScreenCover(isPresented: $isFakeNotifyPresented) {
-            FakeNotificationSetupView(onClose: {
+            FakeNotificationSetupView(viewModel: viewModel, onClose: {
                 isFakeNotifyPresented = false
             })
         }
@@ -285,17 +285,17 @@ struct ContentView: View {
                 ZStack {
                     Circle()
                         .stroke(theme.accent, lineWidth: 1.5)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(theme.accent)
                 }
                 Text("Mở tài khoản")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
             .background(
                 Capsule()
                     .stroke(theme.accent, lineWidth: 1.5)
@@ -303,41 +303,60 @@ struct ContentView: View {
         }
     }
 
-    private var historySheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Lịch sử giao dịch")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(theme.primaryText)
-                Spacer()
-                Button {
-                    isHistorySheetPresented = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(theme.primaryText)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(theme.promoChevronBackground))
+    private var historyOverlay: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        isHistorySheetPresented = false
+                    }
+
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Lịch sử giao dịch")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(theme.primaryText)
+                        Spacer()
+                        Button {
+                            isHistorySheetPresented = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(theme.primaryText)
+                                .frame(width: 32, height: 32)
+                                .background(Circle().fill(theme.promoChevronBackground))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+
+                    Button {
+                        isHistorySheetPresented = false
+                        isHistoryListPresented = true
+                    } label: {
+                        historySheetRow(title: "Toàn bộ giao dịch tại BIDV", subtitle: "Hiển thị toàn bộ giao dịch của Khách hàng tại BIDV")
+                    }
+
+                    Button {
+                    } label: {
+                        historySheetRow(title: "Giao dịch trên SmartBanking", subtitle: "Hiển thị lịch sử thực hiện giao dịch của Khách hàng trên ứng dụng SmartBanking")
+                    }
+                    .padding(.bottom, 12)
                 }
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.white)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .padding(.bottom, -proxy.safeAreaInsets.bottom)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-
-            Button {
-                isHistorySheetPresented = false
-                isHistoryListPresented = true
-            } label: {
-                historySheetRow(title: "Toàn bộ giao dịch tại BIDV", subtitle: "Hiển thị toàn bộ giao dịch của Khách hàng tại BIDV")
-            }
-
-            Button {
-            } label: {
-                historySheetRow(title: "Giao dịch trên SmartBanking", subtitle: "Hiển thị lịch sử thực hiện giao dịch của Khách hàng trên ứng dụng SmartBanking")
-            }
-            .padding(.bottom, 8)
         }
-        .padding(.vertical, 8)
-        .background(Color.white)
+        .transition(.move(edge: .bottom))
+        .animation(.easeInOut(duration: 0.2), value: isHistorySheetPresented)
     }
 
     private func historySheetRow(title: String, subtitle: String) -> some View {
@@ -614,24 +633,32 @@ private struct HistoryRow: View {
     }
 }
 
-private enum FlowType: String, CaseIterable {
-    case all = "Tất cả"
-    case income = "Tiền vào"
-    case expense = "Tiền ra"
-}
-
 private struct FakeNotificationSetupView: View {
+    @ObservedObject var viewModel: AccountViewModel
     let onClose: () -> Void
 
-    @State private var selectedBank = "BIDV"
-    @State private var selectedFlow: FlowType = .all
+    @State private var selectedBank = BankOption(name: "BIDV", shortName: "BIDV")
+    @State private var selectedFlow: AccountViewModel.NotificationMode = .all
     @State private var amountText = "200000"
     @State private var count = 5
     @State private var intervalSeconds = 30
     @State private var statusText = "Chưa tạo thông báo"
+    @State private var accountNumberText = ""
 
     private let theme = Theme()
-    private let banks = ["BIDV", "Vietcombank", "Techcombank", "MB Bank", "ACB"]
+    private let banks = [
+        BankOption(name: "BIDV", shortName: "BIDV"),
+        BankOption(name: "Vietcombank", shortName: "VCB"),
+        BankOption(name: "Techcombank", shortName: "TCB"),
+        BankOption(name: "MB Bank", shortName: "MB"),
+        BankOption(name: "ACB", shortName: "ACB")
+    ]
+
+    init(viewModel: AccountViewModel, onClose: @escaping () -> Void) {
+        self.viewModel = viewModel
+        self.onClose = onClose
+        _accountNumberText = State(initialValue: viewModel.accountNumber)
+    }
 
     var body: some View {
         ZStack {
@@ -643,6 +670,7 @@ private struct FakeNotificationSetupView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         sectionTitle("Thiết lập thông báo giả")
                         bankPicker
+                        accountNumberField
                         flowPicker
                         amountField
                         countPicker
@@ -691,8 +719,8 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Picker("Ngân hàng", selection: $selectedBank) {
-                ForEach(banks, id: \\.self) { bank in
-                    Text(bank).tag(bank)
+                ForEach(banks) { bank in
+                    Text(bank.name).tag(bank)
                 }
             }
             .pickerStyle(.menu)
@@ -712,18 +740,18 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             HStack(spacing: 8) {
-                ForEach(FlowType.allCases, id: \\.self) { flow in
+                ForEach(NotificationModeOption.allCases, id: \.self) { option in
                     Button {
-                        selectedFlow = flow
+                        selectedFlow = option.mode
                     } label: {
-                        Text(flow.rawValue)
+                        Text(option.title)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(selectedFlow == flow ? Color.white : theme.primaryText)
+                            .foregroundStyle(selectedFlow == option.mode ? Color.white : theme.primaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .fill(selectedFlow == flow ? theme.accent : Color.white)
+                                    .fill(selectedFlow == option.mode ? theme.accent : Color.white)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
                                             .stroke(theme.chipBorder, lineWidth: 1)
@@ -733,6 +761,23 @@ private struct FakeNotificationSetupView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private var accountNumberField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Số tài khoản")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            TextField("Nhập số tài khoản", text: $accountNumberText)
+                .keyboardType(.numberPad)
+                .font(.system(size: 14))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(theme.chipBorder, lineWidth: 1)
+                )
         }
     }
 
@@ -759,7 +804,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Stepper(value: $count, in: 1...20) {
-                Text("\\(count) thông báo")
+                Text("\(count) thông báo")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
@@ -778,7 +823,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Stepper(value: $intervalSeconds, in: 5...300, step: 5) {
-                Text(\"\\(intervalSeconds)s / thông báo\")
+                Text("\(intervalSeconds)s / thông báo")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
@@ -806,4 +851,76 @@ private struct FakeNotificationSetupView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 12) {
-            Button {\n                statusText = \"Đã tạo \\(count) thông báo giả cho \\(selectedBank)\"\n            } label: {\n                Text(\"Tạo thông báo\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(.white)\n                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))\n            }\n            Button {\n                statusText = \"Đã hủy thông báo\"\n            } label: {\n                Text(\"Hủy\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(theme.primaryText)\n                    .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))\n            }\n        }\n    }\n}\n*** End Patch"}}
+            Button {
+                let amount = parseAmount(amountText)
+                viewModel.updateBankInfo(
+                    bankName: selectedBank.name,
+                    bankShortName: selectedBank.shortName,
+                    accountNumber: accountNumberText.isEmpty ? viewModel.accountNumber : accountNumberText
+                )
+                Task {
+                    let result = await viewModel.scheduleFakeNotifications(
+                        mode: selectedFlow,
+                        bankName: selectedBank.name,
+                        bankShortName: selectedBank.shortName,
+                        amount: amount,
+                        count: count,
+                        intervalSeconds: intervalSeconds
+                    )
+                    statusText = result
+                }
+            } label: {
+                Text("Tạo thông báo")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundStyle(.white)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
+            }
+            Button {
+                viewModel.cancelFakeNotifications()
+                statusText = "Đã hủy thông báo"
+            } label: {
+                Text("Hủy")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundStyle(theme.primaryText)
+                    .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))
+            }
+        }
+    }
+
+    private func parseAmount(_ text: String) -> Int {
+        let digits = text.filter { $0.isNumber }
+        return Int(digits) ?? 0
+    }
+}
+
+private struct BankOption: Identifiable, Hashable {
+    var id: String { shortName }
+    let name: String
+    let shortName: String
+}
+
+private enum NotificationModeOption: CaseIterable {
+    case all
+    case income
+    case expense
+
+    var title: String {
+        switch self {
+        case .all: return "Tất cả"
+        case .income: return "Tiền vào"
+        case .expense: return "Tiền ra"
+        }
+    }
+
+    var mode: AccountViewModel.NotificationMode {
+        switch self {
+        case .all: return .all
+        case .income: return .income
+        case .expense: return .expense
+        }
+    }
+}
