@@ -35,7 +35,7 @@ struct ContentView: View {
             historyListView
         }
         .fullScreenCover(isPresented: $isFakeNotifyPresented) {
-            FakeNotificationSetupView(onClose: {
+            FakeNotificationSetupView(viewModel: viewModel, onClose: {
                 isFakeNotifyPresented = false
             })
         }
@@ -614,24 +614,25 @@ private struct HistoryRow: View {
     }
 }
 
-private enum FlowType: String, CaseIterable {
-    case all = "Tất cả"
-    case income = "Tiền vào"
-    case expense = "Tiền ra"
-}
-
 private struct FakeNotificationSetupView: View {
+    @ObservedObject var viewModel: AccountViewModel
     let onClose: () -> Void
 
-    @State private var selectedBank = "BIDV"
-    @State private var selectedFlow: FlowType = .all
+    @State private var selectedBank = BankOption(name: "BIDV", shortName: "BIDV")
+    @State private var selectedFlow: AccountViewModel.NotificationMode = .all
     @State private var amountText = "200000"
     @State private var count = 5
     @State private var intervalSeconds = 30
     @State private var statusText = "Chưa tạo thông báo"
 
     private let theme = Theme()
-    private let banks = ["BIDV", "Vietcombank", "Techcombank", "MB Bank", "ACB"]
+    private let banks = [
+        BankOption(name: "BIDV", shortName: "BIDV"),
+        BankOption(name: "Vietcombank", shortName: "VCB"),
+        BankOption(name: "Techcombank", shortName: "TCB"),
+        BankOption(name: "MB Bank", shortName: "MB"),
+        BankOption(name: "ACB", shortName: "ACB")
+    ]
 
     var body: some View {
         ZStack {
@@ -691,8 +692,8 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Picker("Ngân hàng", selection: $selectedBank) {
-                ForEach(banks, id: \.self) { bank in
-                    Text(bank).tag(bank)
+                ForEach(banks) { bank in
+                    Text(bank.name).tag(bank)
                 }
             }
             .pickerStyle(.menu)
@@ -712,18 +713,18 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             HStack(spacing: 8) {
-                ForEach(FlowType.allCases, id: \.self) { flow in
+                ForEach(NotificationModeOption.allCases, id: \.self) { option in
                     Button {
-                        selectedFlow = flow
+                        selectedFlow = option.mode
                     } label: {
-                        Text(flow.rawValue)
+                        Text(option.title)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(selectedFlow == flow ? Color.white : theme.primaryText)
+                            .foregroundStyle(selectedFlow == option.mode ? Color.white : theme.primaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .fill(selectedFlow == flow ? theme.accent : Color.white)
+                                    .fill(selectedFlow == option.mode ? theme.accent : Color.white)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
                                             .stroke(theme.chipBorder, lineWidth: 1)
@@ -807,7 +808,18 @@ private struct FakeNotificationSetupView: View {
     private var actionButtons: some View {
         HStack(spacing: 12) {
             Button {
-                statusText = "Đã tạo \(count) thông báo giả cho \(selectedBank)"
+                let amount = parseAmount(amountText)
+                Task {
+                    let result = await viewModel.scheduleFakeNotifications(
+                        mode: selectedFlow,
+                        bankName: selectedBank.name,
+                        bankShortName: selectedBank.shortName,
+                        amount: amount,
+                        count: count,
+                        intervalSeconds: intervalSeconds
+                    )
+                    statusText = result
+                }
             } label: {
                 Text("Tạo thông báo")
                     .font(.system(size: 14, weight: .semibold))
@@ -817,6 +829,7 @@ private struct FakeNotificationSetupView: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
             }
             Button {
+                viewModel.cancelFakeNotifications()
                 statusText = "Đã hủy thông báo"
             } label: {
                 Text("Hủy")
@@ -826,6 +839,39 @@ private struct FakeNotificationSetupView: View {
                     .foregroundStyle(theme.primaryText)
                     .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))
             }
+        }
+    }
+
+    private func parseAmount(_ text: String) -> Int {
+        let digits = text.filter { $0.isNumber }
+        return Int(digits) ?? 0
+    }
+}
+
+private struct BankOption: Identifiable, Hashable {
+    let id = UUID()
+    let name: String
+    let shortName: String
+}
+
+private enum NotificationModeOption: CaseIterable {
+    case all
+    case income
+    case expense
+
+    var title: String {
+        switch self {
+        case .all: return "Tất cả"
+        case .income: return "Tiền vào"
+        case .expense: return "Tiền ra"
+        }
+    }
+
+    var mode: AccountViewModel.NotificationMode {
+        switch self {
+        case .all: return .all
+        case .income: return .income
+        case .expense: return .expense
         }
     }
 }

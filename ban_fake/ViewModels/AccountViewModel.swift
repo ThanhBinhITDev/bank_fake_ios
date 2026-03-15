@@ -11,6 +11,12 @@ import UserNotifications
 
 @MainActor
 final class AccountViewModel: ObservableObject {
+    enum NotificationMode {
+        case all
+        case income
+        case expense
+    }
+
     @Published var accountNumber: String
     @Published var balance: Int
     @Published var transactions: [Transaction]
@@ -19,6 +25,7 @@ final class AccountViewModel: ObservableObject {
     private let bankName: String
     private let bankShortName: String
     private let accountSuffix: String
+    private var scheduledNotificationIds: [String]
 
     init() {
         accountNumber = "8866476102"
@@ -28,6 +35,7 @@ final class AccountViewModel: ObservableObject {
         bankName = "BIDV"
         bankShortName = "BIDV"
         accountSuffix = "6102"
+        scheduledNotificationIds = []
 
         seedHistory()
     }
@@ -70,10 +78,76 @@ final class AccountViewModel: ObservableObject {
         }
     }
 
-    private func notificationBody(delta: Int) -> String {
+    func scheduleFakeNotifications(
+        mode: NotificationMode,
+        bankName: String,
+        bankShortName: String,
+        amount: Int,
+        count: Int,
+        intervalSeconds: Int
+    ) async -> String {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+
+        if settings.authorizationStatus == .notDetermined {
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            if !granted {
+                return "Chưa được cấp quyền thông báo"
+            }
+        } else if settings.authorizationStatus == .denied {
+            return "Thông báo đang bị tắt trong Settings"
+        }
+
+        cancelFakeNotifications()
+
+        let safeCount = max(1, min(20, count))
+        let safeInterval = max(5, min(300, intervalSeconds))
+        let baseAmount = max(1, amount)
+
+        for index in 1...safeCount {
+            let delta = signedAmount(baseAmount, mode: mode)
+            let content = UNMutableNotificationContent()
+            content.title = "\(bankShortName) • Biến động số dư"
+            content.body = notificationBody(delta: delta, bankName: bankName)
+            content.sound = .default
+
+            let trigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: TimeInterval(index * safeInterval),
+                repeats: false
+            )
+
+            let id = UUID().uuidString
+            scheduledNotificationIds.append(id)
+            let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+            try? await center.add(request)
+        }
+
+        return "Đã tạo \(safeCount) thông báo giả cho \(bankShortName)"
+    }
+
+    func cancelFakeNotifications() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: scheduledNotificationIds)
+        center.removeDeliveredNotifications(withIdentifiers: scheduledNotificationIds)
+        scheduledNotificationIds.removeAll()
+    }
+
+    private func notificationBody(delta: Int, bankName: String? = nil) -> String {
         let amount = formatCurrency(abs(delta))
         let action = delta >= 0 ? "cộng" : "trừ"
-        return "\(bankName): TK ****\(accountSuffix) vừa \(action) \(amount)."
+        let name = bankName ?? self.bankName
+        return "\(name): TK ****\(accountSuffix) vừa \(action) \(amount)."
+    }
+
+    private func signedAmount(_ amount: Int, mode: NotificationMode) -> Int {
+        switch mode {
+        case .income:
+            return amount
+        case .expense:
+            return -amount
+        case .all:
+            return Bool.random() ? amount : -amount
+        }
     }
 
     private func randomDelta() -> Int {
