@@ -285,17 +285,17 @@ struct ContentView: View {
                 ZStack {
                     Circle()
                         .stroke(theme.accent, lineWidth: 1.5)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(theme.accent)
                 }
                 Text("Mở tài khoản")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
             .background(
                 Capsule()
                     .stroke(theme.accent, lineWidth: 1.5)
@@ -849,7 +849,7 @@ private struct FakeNotificationSetupView: View {
 }
 
 private struct BankOption: Identifiable, Hashable {
-    let id = UUID()
+    var id: String { shortName }
     let name: String
     let shortName: String
 }
