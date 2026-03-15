@@ -691,7 +691,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Picker("Ngân hàng", selection: $selectedBank) {
-                ForEach(banks, id: \\.self) { bank in
+                ForEach(banks, id: \.self) { bank in
                     Text(bank).tag(bank)
                 }
             }
@@ -712,7 +712,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             HStack(spacing: 8) {
-                ForEach(FlowType.allCases, id: \\.self) { flow in
+                ForEach(FlowType.allCases, id: \.self) { flow in
                     Button {
                         selectedFlow = flow
                     } label: {
@@ -759,7 +759,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Stepper(value: $count, in: 1...20) {
-                Text("\\(count) thông báo")
+                Text("\(count) thông báo")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
@@ -778,7 +778,7 @@ private struct FakeNotificationSetupView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.subtleText)
             Stepper(value: $intervalSeconds, in: 5...300, step: 5) {
-                Text(\"\\(intervalSeconds)s / thông báo\")
+                Text("\(intervalSeconds)s / thông báo")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.primaryText)
             }
@@ -806,4 +806,26 @@ private struct FakeNotificationSetupView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 12) {
-            Button {\n                statusText = \"Đã tạo \\(count) thông báo giả cho \\(selectedBank)\"\n            } label: {\n                Text(\"Tạo thông báo\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(.white)\n                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))\n            }\n            Button {\n                statusText = \"Đã hủy thông báo\"\n            } label: {\n                Text(\"Hủy\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(theme.primaryText)\n                    .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))\n            }\n        }\n    }\n}\n*** End Patch"}}
+            Button {
+                statusText = "Đã tạo \(count) thông báo giả cho \(selectedBank)"
+            } label: {
+                Text("Tạo thông báo")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundStyle(.white)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
+            }
+            Button {
+                statusText = "Đã hủy thông báo"
+            } label: {
+                Text("Hủy")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundStyle(theme.primaryText)
+                    .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))
+            }
+        }
+    }
+}
