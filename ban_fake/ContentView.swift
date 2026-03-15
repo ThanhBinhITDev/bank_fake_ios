@@ -10,6 +10,9 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = AccountViewModel()
     private let theme = Theme()
+    @State private var isHistorySheetPresented = false
+    @State private var isHistoryListPresented = false
+    @State private var isFakeNotifyPresented = false
 
     var body: some View {
         ZStack {
@@ -17,14 +20,24 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 topBar
-                ScrollView {
-                    content
-                    transactionsSection
-                }
+                ScrollView { content }
                 Spacer()
                 bottomButton
                     .padding(.bottom, 18)
             }
+        }
+        .sheet(isPresented: $isHistorySheetPresented) {
+            historySheet
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: $isHistoryListPresented) {
+            historyListView
+        }
+        .fullScreenCover(isPresented: $isFakeNotifyPresented) {
+            FakeNotificationSetupView(onClose: {
+                isFakeNotifyPresented = false
+            })
         }
     }
 
@@ -212,7 +225,9 @@ struct ContentView: View {
             HStack {
                 cardAction(title: "My QR", systemName: "qrcode")
                 Spacer()
-                cardAction(title: "Lịch sử GD", systemName: "clock")
+                cardAction(title: "Lịch sử GD", systemName: "clock") {
+                    isHistorySheetPresented = true
+                }
                 Spacer()
                 cardAction(title: "Chi tiết", systemName: "doc.plaintext")
             }
@@ -227,83 +242,6 @@ struct ContentView: View {
         )
     }
 
-    private var transactionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Giao dịch gần đây")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(theme.primaryText)
-                .padding(.horizontal, 20)
-
-            if viewModel.transactions.isEmpty {
-                Text("Chưa có giao dịch. Bấm nút làm mới để tạo giao dịch giả.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.subtleText)
-                    .padding(.horizontal, 20)
-            } else {
-                ForEach(viewModel.transactions.prefix(6)) { transaction in
-                    transactionRow(transaction)
-                        .padding(.horizontal, 20)
-                }
-            }
-        }
-        .padding(.top, 14)
-    }
-
-    private func transactionRow(_ transaction: Transaction) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(theme.cardBackground)
-                    .frame(width: 36, height: 36)
-                Image(systemName: transaction.amount >= 0 ? "arrow.down.left" : "arrow.up.right")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(transaction.amount >= 0 ? theme.accent : Color.red)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(theme.primaryText)
-                Text(formattedDate(transaction.date))
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.subtleText)
-            }
-
-            Spacer()
-
-            Text(formattedAmount(transaction.amount))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(transaction.amount >= 0 ? theme.accent : Color.red)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(theme.cardBackground)
-        )
-    }
-
-    private func formattedAmount(_ amount: Int) -> String {
-        let sign = amount >= 0 ? "+" : "-"
-        let value = abs(amount)
-        return sign + formatCurrency(value)
-    }
-
-    private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    private func formatCurrency(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "VND"
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "VND 0"
-    }
-
     private func actionIcon(systemName: String) -> some View {
         ZStack {
             Circle()
@@ -315,27 +253,33 @@ struct ContentView: View {
         }
     }
 
-    private func cardAction(title: String, systemName: String) -> some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .stroke(theme.cardIconBorder, lineWidth: 1)
-                    .frame(width: 34, height: 34)
-                Image(systemName: systemName)
-                    .font(.system(size: 14, weight: .semibold))
+    private func cardAction(title: String, systemName: String, action: (() -> Void)? = nil) -> some View {
+        Button {
+            action?()
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .stroke(theme.cardIconBorder, lineWidth: 1)
+                        .frame(width: 34, height: 34)
+                    Image(systemName: systemName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.cardPrimaryText)
+                }
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(theme.cardPrimaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.cardPrimaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            .frame(width: 72)
         }
-        .frame(width: 72)
+        .buttonStyle(.plain)
     }
 
     private var bottomButton: some View {
         Button {
+            isFakeNotifyPresented = true
         } label: {
             HStack(spacing: 8) {
                 ZStack {
@@ -357,6 +301,70 @@ struct ContentView: View {
                     .stroke(theme.accent, lineWidth: 1.5)
             )
         }
+    }
+
+    private var historySheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Lịch sử giao dịch")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(theme.primaryText)
+                Spacer()
+                Button {
+                    isHistorySheetPresented = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(theme.promoChevronBackground))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+
+            Button {
+                isHistorySheetPresented = false
+                isHistoryListPresented = true
+            } label: {
+                historySheetRow(title: "Toàn bộ giao dịch tại BIDV", subtitle: "Hiển thị toàn bộ giao dịch của Khách hàng tại BIDV")
+            }
+
+            Button {
+            } label: {
+                historySheetRow(title: "Giao dịch trên SmartBanking", subtitle: "Hiển thị lịch sử thực hiện giao dịch của Khách hàng trên ứng dụng SmartBanking")
+            }
+            .padding(.bottom, 8)
+        }
+        .padding(.vertical, 8)
+        .background(Color.white)
+    }
+
+    private func historySheetRow(title: String, subtitle: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.subtleText)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+                .padding(8)
+                .background(Circle().fill(theme.promoChevronBackground))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
+    }
+
+    private var historyListView: some View {
+        HistoryListView(items: viewModel.historyItems, onClose: {
+            isHistoryListPresented = false
+        })
     }
 }
 
@@ -385,3 +393,417 @@ private struct Theme {
     let cardDivider = Color(red: 0.45, green: 0.60, blue: 0.56)
     let cardIconBorder = Color(red: 0.40, green: 0.58, blue: 0.54)
 }
+
+private enum HistoryTab: String, CaseIterable {
+    case all = "Tất cả"
+    case income = "Tiền vào"
+    case expense = "Tiền ra"
+}
+
+private struct HistoryListView: View {
+    let items: [HistoryItem]
+    let onClose: () -> Void
+
+    @State private var searchText = ""
+    @State private var selectedTab: HistoryTab = .all
+
+    private let theme = Theme()
+
+    var body: some View {
+        ZStack {
+            Color.white.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                header
+                searchBar
+                tabs
+                listContent
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Button {
+                onClose()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+
+            Text("Toàn bộ GD tại BIDV")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(theme.primaryText)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Text("Bộ lọc")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.accent)
+                Rectangle()
+                    .fill(theme.chipBorder)
+                    .frame(width: 1, height: 16)
+                Button {
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(theme.accent)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(theme.subtleText)
+            TextField("Tìm kiếm", text: $searchText)
+                .font(.system(size: 14))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(theme.chipBorder, lineWidth: 1)
+        )
+        .padding(.horizontal, 20)
+    }
+
+    private var tabs: some View {
+        VStack(spacing: 6) {
+            HStack {
+                tabItem(.all)
+                tabItem(.income)
+                tabItem(.expense)
+            }
+            HStack {
+                Rectangle()
+                    .fill(theme.accent)
+                    .frame(width: 84, height: 2)
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+    }
+
+    private func tabItem(_ tab: HistoryTab) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            Text(tab.rawValue)
+                .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .regular))
+                .foregroundStyle(selectedTab == tab ? theme.primaryText : theme.subtleText)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var listContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(groupedKeys, id: \.self) { dateKey in
+                    Text(dateKey)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(theme.primaryText)
+                        .padding(.horizontal, 20)
+
+                    VStack(spacing: 0) {
+                        ForEach(groupedItems[dateKey] ?? []) { item in
+                            HistoryRow(item: item, theme: theme)
+                            if item.id != (groupedItems[dateKey] ?? []).last?.id {
+                                Divider()
+                                    .overlay(theme.chipBorder)
+                                    .padding(.leading, 20)
+                            }
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(red: 0.97, green: 0.97, blue: 0.97))
+                    )
+                    .padding(.horizontal, 20)
+                }
+            }
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private var filteredItems: [HistoryItem] {
+        items.filter { item in
+            let matchesSearch = searchText.isEmpty || item.title.lowercased().contains(searchText.lowercased()) || item.code.lowercased().contains(searchText.lowercased())
+            let matchesTab: Bool
+            switch selectedTab {
+            case .all:
+                matchesTab = true
+            case .income:
+                matchesTab = item.amount >= 0
+            case .expense:
+                matchesTab = item.amount < 0
+            }
+            return matchesSearch && matchesTab
+        }
+    }
+
+    private var groupedItems: [String: [HistoryItem]] {
+        Dictionary(grouping: filteredItems) { item in
+            dateFormatter.string(from: item.date)
+        }
+    }
+
+    private var groupedKeys: [String] {
+        groupedItems.keys.sorted(by: { $0 > $1 })
+    }
+
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        return formatter
+    }
+}
+
+private struct HistoryRow: View {
+    let item: HistoryItem
+    let theme: Theme
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                    .lineLimit(1)
+                Text(item.code)
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.subtleText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(formattedAmount(item.amount))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(item.amount >= 0 ? Color(red: 0.10, green: 0.55, blue: 0.22) : Color.red)
+                Text(timeFormatter.string(from: item.date))
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.subtleText)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }
+
+    private func formattedAmount(_ amount: Int) -> String {
+        let sign = amount >= 0 ? "+" : "-"
+        let value = abs(amount)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let number = formatter.string(from: NSNumber(value: value)) ?? "0"
+        return sign + number + " VND"
+    }
+}
+
+private enum FlowType: String, CaseIterable {
+    case all = "Tất cả"
+    case income = "Tiền vào"
+    case expense = "Tiền ra"
+}
+
+private struct FakeNotificationSetupView: View {
+    let onClose: () -> Void
+
+    @State private var selectedBank = "BIDV"
+    @State private var selectedFlow: FlowType = .all
+    @State private var amountText = "200000"
+    @State private var count = 5
+    @State private var intervalSeconds = 30
+    @State private var statusText = "Chưa tạo thông báo"
+
+    private let theme = Theme()
+    private let banks = ["BIDV", "Vietcombank", "Techcombank", "MB Bank", "ACB"]
+
+    var body: some View {
+        ZStack {
+            Color.white.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                header
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        sectionTitle("Thiết lập thông báo giả")
+                        bankPicker
+                        flowPicker
+                        amountField
+                        countPicker
+                        intervalPicker
+                        statusBlock
+                        actionButtons
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Button {
+                onClose()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+
+            Text("Tạo thông báo giả")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(theme.primaryText)
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(theme.primaryText)
+    }
+
+    private var bankPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Ngân hàng")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            Picker("Ngân hàng", selection: $selectedBank) {
+                ForEach(banks, id: \\.self) { bank in
+                    Text(bank).tag(bank)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(theme.chipBorder, lineWidth: 1)
+            )
+        }
+    }
+
+    private var flowPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Loại biến động")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            HStack(spacing: 8) {
+                ForEach(FlowType.allCases, id: \\.self) { flow in
+                    Button {
+                        selectedFlow = flow
+                    } label: {
+                        Text(flow.rawValue)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(selectedFlow == flow ? Color.white : theme.primaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(selectedFlow == flow ? theme.accent : Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(theme.chipBorder, lineWidth: 1)
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var amountField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Số tiền mỗi thông báo")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            TextField("VND", text: $amountText)
+                .keyboardType(.numberPad)
+                .font(.system(size: 14))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(theme.chipBorder, lineWidth: 1)
+                )
+        }
+    }
+
+    private var countPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Số lượng thông báo")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            Stepper(value: $count, in: 1...20) {
+                Text("\\(count) thông báo")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(theme.chipBorder, lineWidth: 1)
+            )
+        }
+    }
+
+    private var intervalPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Khoảng cách (giây)")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            Stepper(value: $intervalSeconds, in: 5...300, step: 5) {
+                Text(\"\\(intervalSeconds)s / thông báo\")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(theme.chipBorder, lineWidth: 1)
+            )
+        }
+    }
+
+    private var statusBlock: some View {
+        Text(statusText)
+            .font(.system(size: 12))
+            .foregroundStyle(theme.subtleText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(red: 0.97, green: 0.97, blue: 0.97))
+            )
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 12) {
+            Button {\n                statusText = \"Đã tạo \\(count) thông báo giả cho \\(selectedBank)\"\n            } label: {\n                Text(\"Tạo thông báo\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(.white)\n                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))\n            }\n            Button {\n                statusText = \"Đã hủy thông báo\"\n            } label: {\n                Text(\"Hủy\")\n                    .font(.system(size: 14, weight: .semibold))\n                    .frame(maxWidth: .infinity)\n                    .padding(.vertical, 10)\n                    .foregroundStyle(theme.primaryText)\n                    .background(RoundedRectangle(cornerRadius: 12).stroke(theme.chipBorder, lineWidth: 1))\n            }\n        }\n    }\n}\n*** End Patch"}}

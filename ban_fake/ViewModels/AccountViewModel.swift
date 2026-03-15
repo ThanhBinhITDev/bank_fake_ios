@@ -25,7 +25,7 @@ final class AccountViewModel: ObservableObject {
         balance = 1_695
         transactions = []
         historyItems = []
-        bankName = "Vietcombank"
+        bankName = "BIDV"
         bankShortName = "BIDV"
         accountSuffix = "6102"
 
@@ -104,5 +104,24 @@ final class AccountViewModel: ObservableObject {
         let day1 = calendar.date(byAdding: .day, value: -1, to: now) ?? now
         let day2 = calendar.date(byAdding: .day, value: -2, to: now) ?? now
 
-        historyItems = [\n            HistoryItem(id: UUID(), title: \"7530580245 LE THANH B...\", code: \"Mã GD: 0392gMfW-87WDw...\", amount: -1_200_000, date: makeTime(day1, hour: 11, minute: 15, second: 28)),\n            HistoryItem(id: UUID(), title: \"MB-TKThe MS0OP0000...\", code: \"Mã GD: 0832S4C2-87W5IG...\", amount: -30_000, date: makeTime(day1, hour: 9, minute: 10, second: 33)),\n            HistoryItem(id: UUID(), title: \"MB-TKThe MS0OP0000...\", code: \"Mã GD: 0831HTGS-87W53x...\", amount: -16_000, date: makeTime(day1, hour: 8, minute: 59, second: 53)),\n            HistoryItem(id: UUID(), title: \"TKThe: 0328544171, tai M...\", code: \"Mã GD: 8683BRJ2-87V7kcH...\", amount: 200_000, date: makeTime(day2, hour: 17, minute: 54, second: 15)),\n            HistoryItem(id: UUID(), title: \"MB-TKThe MS0OP0000...\", code: \"Mã GD: 0832gMqk-87V4fb...\", amount: -17_000, date: makeTime(day2, hour: 17, minute: 7, second: 13)),\n            HistoryItem(id: UUID(), title: \"SMB-TkThe: 1038852587...\", code: \"Mã GD: 8682wrou-87V4TJ9...\", amount: -30_000, date: makeTime(day2, hour: 17, minute: 4, second: 11)),\n            HistoryItem(id: UUID(), title: \"Card Yearly Fee-517453*...\", code: \"Mã GD: 08725W7i-87UqNld...\", amount: -220_000, date: makeTime(day2, hour: 13, minute: 28, second: 53)),\n            HistoryItem(id: UUID(), title: \"REM Tfr Ac: 8866476102...\", code: \"Mã GD: 0552S4C2-87UoQ...\", amount: -10_000, date: makeTime(day2, hour: 12, minute: 59, second: 18))\n        ]\n    }\n+\n+    private func makeTime(_ base: Date, hour: Int, minute: Int, second: Int) -> Date {\n+        let calendar = Calendar.current\n+        var components = calendar.dateComponents([.year, .month, .day], from: base)\n+        components.hour = hour\n+        components.minute = minute\n+        components.second = second\n+        return calendar.date(from: components) ?? base\n+    }\n }\n*** End Patch"}}
+        historyItems = [
+            HistoryItem(id: UUID(), title: "7530580245 LE THANH B...", code: "Mã GD: 0392gMfW-87WDw...", amount: -1_200_000, date: makeTime(day1, hour: 11, minute: 15, second: 28)),
+            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0832S4C2-87W5IG...", amount: -30_000, date: makeTime(day1, hour: 9, minute: 10, second: 33)),
+            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0831HTGS-87W53x...", amount: -16_000, date: makeTime(day1, hour: 8, minute: 59, second: 53)),
+            HistoryItem(id: UUID(), title: "TKThe: 0328544171, tai M...", code: "Mã GD: 8683BRJ2-87V7kcH...", amount: 200_000, date: makeTime(day2, hour: 17, minute: 54, second: 15)),
+            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0832gMqk-87V4fb...", amount: -17_000, date: makeTime(day2, hour: 17, minute: 7, second: 13)),
+            HistoryItem(id: UUID(), title: "SMB-TkThe: 1038852587...", code: "Mã GD: 8682wrou-87V4TJ9...", amount: -30_000, date: makeTime(day2, hour: 17, minute: 4, second: 11)),
+            HistoryItem(id: UUID(), title: "Card Yearly Fee-517453*...", code: "Mã GD: 08725W7i-87UqNld...", amount: -220_000, date: makeTime(day2, hour: 13, minute: 28, second: 53)),
+            HistoryItem(id: UUID(), title: "REM Tfr Ac: 8866476102...", code: "Mã GD: 0552S4C2-87UoQ...", amount: -10_000, date: makeTime(day2, hour: 12, minute: 59, second: 18))
+        ]
+    }
+
+    private func makeTime(_ base: Date, hour: Int, minute: Int, second: Int) -> Date {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: base)
+        components.hour = hour
+        components.minute = minute
+        components.second = second
+        return calendar.date(from: components) ?? base
+    }
 }
