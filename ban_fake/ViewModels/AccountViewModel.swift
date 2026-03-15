@@ -132,6 +132,13 @@ final class AccountViewModel: ObservableObject {
 
             let id = UUID().uuidString
             scheduledNotificationIds.append(id)
+            
+            if let attachmentURL = Bundle.main.url(forResource: "notification_icon", withExtension: "png") {
+                if let attachment = try? UNNotificationAttachment(identifier: "icon", url: attachmentURL, options: nil) {
+                    content.attachments = [attachment]
+                }
+            }
+            
             let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
             try? await center.add(request)
         }
