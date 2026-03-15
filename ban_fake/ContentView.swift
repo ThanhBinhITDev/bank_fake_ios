@@ -26,10 +26,10 @@ struct ContentView: View {
                     .padding(.bottom, 18)
             }
         }
-        .sheet(isPresented: $isHistorySheetPresented) {
-            historySheet
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+        .overlay(alignment: .bottom) {
+            if isHistorySheetPresented {
+                historyOverlay
+            }
         }
         .fullScreenCover(isPresented: $isHistoryListPresented) {
             historyListView
@@ -303,41 +303,60 @@ struct ContentView: View {
         }
     }
 
-    private var historySheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Lịch sử giao dịch")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(theme.primaryText)
-                Spacer()
-                Button {
-                    isHistorySheetPresented = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(theme.primaryText)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(theme.promoChevronBackground))
+    private var historyOverlay: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        isHistorySheetPresented = false
+                    }
+
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Lịch sử giao dịch")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(theme.primaryText)
+                        Spacer()
+                        Button {
+                            isHistorySheetPresented = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(theme.primaryText)
+                                .frame(width: 32, height: 32)
+                                .background(Circle().fill(theme.promoChevronBackground))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+
+                    Button {
+                        isHistorySheetPresented = false
+                        isHistoryListPresented = true
+                    } label: {
+                        historySheetRow(title: "Toàn bộ giao dịch tại BIDV", subtitle: "Hiển thị toàn bộ giao dịch của Khách hàng tại BIDV")
+                    }
+
+                    Button {
+                    } label: {
+                        historySheetRow(title: "Giao dịch trên SmartBanking", subtitle: "Hiển thị lịch sử thực hiện giao dịch của Khách hàng trên ứng dụng SmartBanking")
+                    }
+                    .padding(.bottom, 12)
                 }
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.white)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .padding(.bottom, -proxy.safeAreaInsets.bottom)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-
-            Button {
-                isHistorySheetPresented = false
-                isHistoryListPresented = true
-            } label: {
-                historySheetRow(title: "Toàn bộ giao dịch tại BIDV", subtitle: "Hiển thị toàn bộ giao dịch của Khách hàng tại BIDV")
-            }
-
-            Button {
-            } label: {
-                historySheetRow(title: "Giao dịch trên SmartBanking", subtitle: "Hiển thị lịch sử thực hiện giao dịch của Khách hàng trên ứng dụng SmartBanking")
-            }
-            .padding(.bottom, 8)
         }
-        .padding(.vertical, 8)
-        .background(Color.white)
+        .transition(.move(edge: .bottom))
+        .animation(.easeInOut(duration: 0.2), value: isHistorySheetPresented)
     }
 
     private func historySheetRow(title: String, subtitle: String) -> some View {
@@ -624,6 +643,7 @@ private struct FakeNotificationSetupView: View {
     @State private var count = 5
     @State private var intervalSeconds = 30
     @State private var statusText = "Chưa tạo thông báo"
+    @State private var accountNumberText = ""
 
     private let theme = Theme()
     private let banks = [
@@ -633,6 +653,12 @@ private struct FakeNotificationSetupView: View {
         BankOption(name: "MB Bank", shortName: "MB"),
         BankOption(name: "ACB", shortName: "ACB")
     ]
+
+    init(viewModel: AccountViewModel, onClose: @escaping () -> Void) {
+        self.viewModel = viewModel
+        self.onClose = onClose
+        _accountNumberText = State(initialValue: viewModel.accountNumber)
+    }
 
     var body: some View {
         ZStack {
@@ -644,6 +670,7 @@ private struct FakeNotificationSetupView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         sectionTitle("Thiết lập thông báo giả")
                         bankPicker
+                        accountNumberField
                         flowPicker
                         amountField
                         countPicker
@@ -737,6 +764,23 @@ private struct FakeNotificationSetupView: View {
         }
     }
 
+    private var accountNumberField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Số tài khoản")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.subtleText)
+            TextField("Nhập số tài khoản", text: $accountNumberText)
+                .keyboardType(.numberPad)
+                .font(.system(size: 14))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(theme.chipBorder, lineWidth: 1)
+                )
+        }
+    }
+
     private var amountField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Số tiền mỗi thông báo")
@@ -809,6 +853,11 @@ private struct FakeNotificationSetupView: View {
         HStack(spacing: 12) {
             Button {
                 let amount = parseAmount(amountText)
+                viewModel.updateBankInfo(
+                    bankName: selectedBank.name,
+                    bankShortName: selectedBank.shortName,
+                    accountNumber: accountNumberText.isEmpty ? viewModel.accountNumber : accountNumberText
+                )
                 Task {
                     let result = await viewModel.scheduleFakeNotifications(
                         mode: selectedFlow,

@@ -22,9 +22,9 @@ final class AccountViewModel: ObservableObject {
     @Published var transactions: [Transaction]
     @Published var historyItems: [HistoryItem]
 
-    private let bankName: String
-    private let bankShortName: String
-    private let accountSuffix: String
+    private var bankName: String
+    private var bankShortName: String
+    private var accountSuffix: String
     private var scheduledNotificationIds: [String]
 
     init() {
@@ -148,6 +148,13 @@ final class AccountViewModel: ObservableObject {
         case .all:
             return Bool.random() ? amount : -amount
         }
+    }
+
+    func updateBankInfo(bankName: String, bankShortName: String, accountNumber: String) {
+        self.bankName = bankName
+        self.bankShortName = bankShortName
+        self.accountNumber = accountNumber
+        self.accountSuffix = String(accountNumber.suffix(4))
     }
 
     private func randomDelta() -> Int {
