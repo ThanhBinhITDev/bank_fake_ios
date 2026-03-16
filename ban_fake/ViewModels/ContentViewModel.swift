@@ -115,12 +115,21 @@ final class ContentViewModel: ObservableObject {
         for index in 1...count {
             let delta = randomDelta()
             let content = UNMutableNotificationContent()
-            content.title = "\(selectedBank.shortName) • Bien dong so du"
+            content.title = "Thông báo \(selectedBank.shortName)"
             content.body = notificationBody(delta: delta)
             content.sound = .default
+            content.interruptionLevel = .active
+            content.threadIdentifier = selectedBank.shortName
+
+            let delay: TimeInterval
+            if index == 1 {
+                delay = 1
+            } else {
+                delay = TimeInterval((index - 1) * selectedPreset.intervalSeconds)
+            }
 
             let trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: TimeInterval(index * selectedPreset.intervalSeconds),
+                timeInterval: delay,
                 repeats: false
             )
 
@@ -132,9 +141,27 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func notificationBody(delta: Int) -> String {
-        let amount = formatCurrency(abs(delta))
-        let action = delta >= 0 ? "cong" : "tru"
-        return "\(selectedBank.name): TK ****\(accountSuffix) vua \(action) \(amount)."
+        let formattedAmount = formatCurrency(abs(delta))
+        let sign = delta >= 0 ? "+" : "-"
+        
+        let contents = [
+            "TKThe :201801052006, tai MB. LE THANH BINH chuyen tien",
+            "TKThe :1038852587, tai Vietcombank. NGUYEN VAN A chuyen tien",
+            "TB-MxKy han 001/TG/26. So tien 15000000",
+            "Thanh toan QR tai cua hang tiện lợi",
+            "Nap tien qua ATM",
+            "Chuyen khoan nhanh 247",
+            "Thanh toan hoa don dien nuoc",
+            "Mua sam trực tuyến"
+        ]
+        let content = contents.randomElement() ?? contents[0]
+        
+        return """
+        Tài khoản thanh toán: ****\(accountSuffix)
+        Số tiền GD: \(sign)\(formattedAmount) VND
+        Số dư cuối: \(formattedBalance) VND
+        Nội dung giao dịch: \(content)
+        """
     }
 
     private func randomDelta() -> Int {

@@ -29,7 +29,7 @@ final class AccountViewModel: ObservableObject {
 
     init() {
         accountNumber = "8866476102"
-        balance = 1_695
+        balance = 42_823_700
         transactions = []
         historyItems = []
         bankName = "BIDV"
@@ -102,22 +102,43 @@ final class AccountViewModel: ObservableObject {
 
         let safeCount = max(1, min(20, count))
         let safeInterval = max(5, min(300, intervalSeconds))
-        let baseAmount = max(1, amount)
+        let baseAmounts = [200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 550, 600, 650, 700, 750, 800, 820, 900, 1000]
+        
+        var accumulatedDelta = 0
 
         for index in 1...safeCount {
+            let baseAmount = baseAmounts.randomElement()! * 1000
             let delta = signedAmount(baseAmount, mode: mode)
+            accumulatedDelta += delta
+            
             let content = UNMutableNotificationContent()
-            content.title = "\(bankShortName) • Biến động số dư"
-            content.body = notificationBody(delta: delta, bankName: bankName)
+            content.title = "Thông báo \(bankShortName)"
+            content.body = notificationBody(delta: delta, bankName: bankName, accumulatedDelta: accumulatedDelta)
             content.sound = .default
+            content.interruptionLevel = .active
+            content.threadIdentifier = bankShortName
 
+            let delay: TimeInterval
+            if index == 1 {
+                delay = 1
+            } else {
+                delay = TimeInterval((index - 1) * safeInterval)
+            }
+            
             let trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: TimeInterval(index * safeInterval),
+                timeInterval: delay,
                 repeats: false
             )
 
             let id = UUID().uuidString
             scheduledNotificationIds.append(id)
+            
+            if let attachmentURL = Bundle.main.url(forResource: "notification_icon", withExtension: "png") {
+                if let attachment = try? UNNotificationAttachment(identifier: "icon", url: attachmentURL, options: nil) {
+                    content.attachments = [attachment]
+                }
+            }
+            
             let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
             try? await center.add(request)
         }
@@ -132,11 +153,24 @@ final class AccountViewModel: ObservableObject {
         scheduledNotificationIds.removeAll()
     }
 
-    private func notificationBody(delta: Int, bankName: String? = nil) -> String {
-        let amount = formatCurrency(abs(delta))
-        let action = delta >= 0 ? "cộng" : "trừ"
-        let name = bankName ?? self.bankName
-        return "\(name): TK ****\(accountSuffix) vừa \(action) \(amount)."
+    private func notificationBody(delta: Int, bankName: String? = nil, accumulatedDelta: Int = 0) -> String {
+        func randomId() -> String {
+            let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+            return String((0..<6).map { _ in chars.randomElement()! })
+        }
+        
+        let formattedAmount = formatCurrency(abs(delta))
+        let sign = delta >= 0 ? "+" : "-"
+        let newBalance = balance + accumulatedDelta
+        let formattedBalance = formatCurrency(newBalance)
+        let id = randomId()
+        
+        return """
+        Tài khoản thanh toán: \(accountNumber)
+        Số tiền GD: \(sign)\(formattedAmount) VND
+        Số dư cuối: \(formattedBalance) VND
+        Nội dung giao dịch: thanhtoan \(id)
+        """
     }
 
     private func signedAmount(_ amount: Int, mode: NotificationMode) -> Int {
@@ -182,19 +216,79 @@ final class AccountViewModel: ObservableObject {
     private func seedHistory() {
         let calendar = Calendar.current
         let now = Date()
-        let day1 = calendar.date(byAdding: .day, value: -1, to: now) ?? now
-        let day2 = calendar.date(byAdding: .day, value: -2, to: now) ?? now
-
-        historyItems = [
-            HistoryItem(id: UUID(), title: "7530580245 LE THANH B...", code: "Mã GD: 0392gMfW-87WDw...", amount: -1_200_000, date: makeTime(day1, hour: 11, minute: 15, second: 28)),
-            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0832S4C2-87W5IG...", amount: -30_000, date: makeTime(day1, hour: 9, minute: 10, second: 33)),
-            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0831HTGS-87W53x...", amount: -16_000, date: makeTime(day1, hour: 8, minute: 59, second: 53)),
-            HistoryItem(id: UUID(), title: "TKThe: 0328544171, tai M...", code: "Mã GD: 8683BRJ2-87V7kcH...", amount: 200_000, date: makeTime(day2, hour: 17, minute: 54, second: 15)),
-            HistoryItem(id: UUID(), title: "MB-TKThe MS0OP0000...", code: "Mã GD: 0832gMqk-87V4fb...", amount: -17_000, date: makeTime(day2, hour: 17, minute: 7, second: 13)),
-            HistoryItem(id: UUID(), title: "SMB-TkThe: 1038852587...", code: "Mã GD: 8682wrou-87V4TJ9...", amount: -30_000, date: makeTime(day2, hour: 17, minute: 4, second: 11)),
-            HistoryItem(id: UUID(), title: "Card Yearly Fee-517453*...", code: "Mã GD: 08725W7i-87UqNld...", amount: -220_000, date: makeTime(day2, hour: 13, minute: 28, second: 53)),
-            HistoryItem(id: UUID(), title: "REM Tfr Ac: 8866476102...", code: "Mã GD: 0552S4C2-87UoQ...", amount: -10_000, date: makeTime(day2, hour: 12, minute: 59, second: 18))
-        ]
+        
+        func randomId() -> String {
+            let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+            return String((0..<6).map { _ in chars.randomElement()! })
+        }
+        
+        var items: [HistoryItem] = []
+        
+        // Ngày hôm nay - nhiều giao dịch
+        for _ in 0..<40 {
+            let hour = Int.random(in: 7...22)
+            let minute = Int.random(in: 0...59)
+            let second = Int.random(in: 0...59)
+            let fullDate = makeTime(now, hour: hour, minute: minute, second: second)
+            
+            let baseAmounts = [200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 550, 600, 650, 700, 750, 800, 820]
+            let amount = baseAmounts.randomElement()! * 1000
+            let id = randomId()
+            
+            items.append(HistoryItem(
+                id: UUID(),
+                title: "thanhtoan \(id)",
+                code: "Ma GD: \(UUID().uuidString.prefix(12))...",
+                amount: amount,
+                date: fullDate
+            ))
+        }
+        
+        // Ngày hôm qua
+        for _ in 0..<8 {
+            let daysAgo = 1
+            let hour = Int.random(in: 8...20)
+            let minute = Int.random(in: 0...59)
+            let second = Int.random(in: 0...59)
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
+            let fullDate = makeTime(date, hour: hour, minute: minute, second: second)
+            
+            let baseAmounts = [200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 550, 600, 650, 700, 750, 800, 820]
+            let amount = baseAmounts.randomElement()! * 1000
+            let id = randomId()
+            
+            items.append(HistoryItem(
+                id: UUID(),
+                title: "thanhtoan \(id)",
+                code: "Ma GD: \(UUID().uuidString.prefix(12))...",
+                amount: amount,
+                date: fullDate
+            ))
+        }
+        
+        // Các ngày trước
+        for _ in 0..<5 {
+            let daysAgo = Int.random(in: 2...7)
+            let hour = Int.random(in: 8...20)
+            let minute = Int.random(in: 0...59)
+            let second = Int.random(in: 0...59)
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now
+            let fullDate = makeTime(date, hour: hour, minute: minute, second: second)
+            
+            let baseAmounts = [200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 550, 600, 650, 700, 750, 800, 820]
+            let amount = baseAmounts.randomElement()! * 1000
+            let id = randomId()
+            
+            items.append(HistoryItem(
+                id: UUID(),
+                title: "thanhtoan \(id)",
+                code: "Ma GD: \(UUID().uuidString.prefix(12))...",
+                amount: amount,
+                date: fullDate
+            ))
+        }
+        
+        historyItems = items.sorted { $0.date > $1.date }
     }
 
     private func makeTime(_ base: Date, hour: Int, minute: Int, second: Int) -> Date {

@@ -71,6 +71,10 @@ struct ContentView: View {
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(theme.primaryText)
                 .padding(.horizontal, 20)
+            Text("Chào, Lê Thanh Bình")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(theme.subtleText)
+                .padding(.horizontal, 20)
 
             tabs
                 .padding(.horizontal, 16)
